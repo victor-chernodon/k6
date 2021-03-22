@@ -73,8 +73,9 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 			common.Throw(rt, err)
 		}
 	}
-	defProp("scenario", mi.newScenarioInfo)
 	defProp("instance", mi.newInstanceInfo)
+	defProp("scenario", mi.newScenarioInfo)
+	defProp("test", mi.newTestInfo)
 	defProp("vu", mi.newVUInfo)
 
 	mi.obj = o
@@ -90,8 +91,7 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 // newScenarioInfo returns a goja.Object with property accessors to retrieve
 // information about the scenario the current VU is running in.
 func (mi *ModuleInstance) newScenarioInfo() (*goja.Object, error) {
-	ctx := mi.vu.Context()
-	rt := common.GetRuntime(ctx)
+	rt := mi.vu.Runtime()
 	vuState := mi.vu.State()
 	if vuState == nil {
 		return nil, errors.New("getting scenario information in the init context is not supported")
@@ -166,6 +166,30 @@ func (mi *ModuleInstance) newInstanceInfo() (*goja.Object, error) {
 		},
 		"vusInitialized": func() interface{} {
 			return es.GetInitializedVUsCount()
+		},
+	}
+
+	return newInfoObj(rt, ti)
+}
+
+// newTestInfo returns a goja.Object with property accessors to retrieve
+// information and control execution of the overall test run.
+func (mi *ModuleInstance) newTestInfo() (*goja.Object, error) {
+	rt := mi.vu.Runtime()
+	if rt == nil {
+		return nil, errors.New("goja runtime is nil in context")
+	}
+
+	ti := map[string]func() interface{}{
+		// stop the test run
+		"abort": func() interface{} {
+			return func(msg goja.Value) {
+				reason := common.AbortTest
+				if msg != nil && !goja.IsUndefined(msg) {
+					reason = fmt.Sprintf("%s: %s", reason, msg.String())
+				}
+				rt.Interrupt(&common.InterruptError{Reason: reason})
+			}
 		},
 	}
 
