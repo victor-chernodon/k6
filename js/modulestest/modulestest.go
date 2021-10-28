@@ -58,3 +58,13 @@ func (m *VU) State() *lib.State {
 func (m *VU) Runtime() *goja.Runtime {
 	return m.RuntimeField
 }
+
+// MakeHandledPromise is not really implemented
+func (m *VU) MakeHandledPromise() (p *goja.Promise, resolve func(interface{}), reject func(interface{})) {
+	return m.RuntimeField.NewPromise() // TODO fix
+}
+
+// AddToEventLoop is not really implemented
+func (m *VU) AddToEventLoop(f func()) {
+	// TODO Implement
+}
