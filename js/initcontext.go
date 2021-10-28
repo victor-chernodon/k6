@@ -67,6 +67,7 @@ type InitContext struct {
 	// Bound runtime; used to instantiate objects.
 	runtime  *goja.Runtime
 	compiler *compiler.Compiler
+	loop     *eventLoop
 
 	// Pointer to a context that bridged modules are invoked with.
 	ctxPtr *context.Context
@@ -100,6 +101,7 @@ func NewInitContext(
 		compatibilityMode: compatMode,
 		logger:            logger,
 		modules:           getJSModules(),
+		loop:              newEventLoop(),
 	}
 }
 
@@ -126,6 +128,7 @@ func newBoundInitContext(base *InitContext, ctxPtr *context.Context, rt *goja.Ru
 		compatibilityMode: base.compatibilityMode,
 		logger:            base.logger,
 		modules:           base.modules,
+		loop:              newEventLoop(),
 	}
 }
 
@@ -153,6 +156,8 @@ func (i *InitContext) Require(arg string) goja.Value {
 
 type moduleInstanceCoreImpl struct {
 	ctxPtr *context.Context
+	rt     *goja.Runtime
+	loop   *eventLoop
 	// we can technically put lib.State here as well as anything else
 }
 
@@ -169,7 +174,26 @@ func (m *moduleInstanceCoreImpl) GetState() *lib.State {
 }
 
 func (m *moduleInstanceCoreImpl) GetRuntime() *goja.Runtime {
-	return common.GetRuntime(*m.ctxPtr) // TODO thread it correctly instead
+	return m.rt
+}
+
+func (m *moduleInstanceCoreImpl) AddToEventLoop(f func()) {
+	m.loop.RunOnLoop(f)
+}
+
+// MakeHandledPromise will create and promise and return it's resolve, reject methods as well wrapped in such a way that
+// it will block the eventloop from exiting before they are called even if the promise isn't resolved by the time the
+// current script ends executing
+func (m *moduleInstanceCoreImpl) MakeHandledPromise() (*goja.Promise, func(interface{}), func(interface{})) {
+	reserved := m.loop.Reserve()
+	p, resolve, reject := m.rt.NewPromise()
+	return p, func(i interface{}) {
+			// more stuff
+			reserved(func() { resolve(i) })
+		}, func(i interface{}) {
+			// more stuff
+			reserved(func() { reject(i) })
+		}
 }
 
 func toESModuleExports(exp modules.Exports) interface{} {
@@ -201,7 +225,7 @@ func (i *InitContext) requireModule(name string) (goja.Value, error) {
 		return nil, fmt.Errorf("unknown module: %s", name)
 	}
 	if modV2, ok := mod.(modules.IsModuleV2); ok {
-		instance := modV2.NewModuleInstance(&moduleInstanceCoreImpl{ctxPtr: i.ctxPtr})
+		instance := modV2.NewModuleInstance(&moduleInstanceCoreImpl{ctxPtr: i.ctxPtr, rt: i.runtime, loop: i.loop})
 		return i.runtime.ToValue(toESModuleExports(instance.GetExports())), nil
 	}
 	if perInstance, ok := mod.(modules.HasModuleInstancePerVU); ok {

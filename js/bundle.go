@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net/url"
 	"runtime"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
@@ -69,6 +70,7 @@ type BundleInstance struct {
 	env map[string]string
 
 	exports map[string]goja.Callable
+	loop    *eventLoop
 }
 
 // NewBundle creates a new bundle from a source file and a filesystem.
@@ -261,6 +263,7 @@ func (b *Bundle) Instantiate(logger logrus.FieldLogger, vuID uint64) (bi *Bundle
 		Context: ctxPtr,
 		exports: make(map[string]goja.Callable),
 		env:     b.RuntimeOptions.Env,
+		loop:    init.loop,
 	}
 
 	// Grab any exported functions that could be executed. These were
@@ -307,6 +310,16 @@ func (b *Bundle) instantiate(logger logrus.FieldLogger, rt *goja.Runtime, init *
 	}
 	rt.Set("__ENV", env)
 	rt.Set("__VU", vuID)
+	_ = rt.Set("setTimeout", func(f func(), t float64) {
+		// TODO checks and fixes
+		// TODO maybe really return something to use with `clearTimeout
+		// TODO support arguments ... maybe
+		runOnLoop := init.loop.Reserve()
+		go func() {
+			time.Sleep(time.Duration(t * float64(time.Millisecond)))
+			runOnLoop(f)
+		}()
+	})
 	rt.Set("console", common.Bind(rt, newConsole(logger), init.ctxPtr))
 
 	if init.compatibilityMode == lib.CompatibilityModeExtended {
@@ -324,7 +337,10 @@ func (b *Bundle) instantiate(logger logrus.FieldLogger, rt *goja.Runtime, init *
 	ctx := common.WithInitEnv(context.Background(), initenv)
 	*init.ctxPtr = common.WithRuntime(ctx, rt)
 	unbindInit := common.BindToGlobal(rt, common.Bind(rt, init, init.ctxPtr))
-	if _, err := rt.RunProgram(b.Program); err != nil {
+	var err error
+	init.loop.RunOnLoop(func() { _, err = rt.RunProgram(b.Program) })
+	init.loop.Start(*init.ctxPtr)
+	if err != nil {
 		var exception *goja.Exception
 		if errors.As(err, &exception) {
 			err = &scriptException{inner: exception}
