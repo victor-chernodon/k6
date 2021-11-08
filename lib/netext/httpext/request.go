@@ -128,9 +128,7 @@ func updateK6Response(k6Response *Response, finishedReq *finishedRequest) {
 }
 
 // MakeRequest makes http request for tor the provided ParsedHTTPRequest
-func MakeRequest(ctx context.Context, preq *ParsedHTTPRequest) (*Response, error) {
-	state := lib.GetState(ctx)
-
+func MakeRequest(ctx context.Context, state *lib.State, preq *ParsedHTTPRequest) (*Response, error) {
 	respReq := &Request{
 		Method:  preq.Req.Method,
 		URL:     preq.Req.URL.String(),
@@ -249,7 +247,7 @@ func MakeRequest(ctx context.Context, preq *ParsedHTTPRequest) (*Response, error
 		transport = ntlmssp.Negotiator{RoundTripper: transport}
 	}
 
-	resp := &Response{ctx: ctx, URL: preq.URL.URL, Request: *respReq}
+	resp := &Response{URL: preq.URL.URL, Request: *respReq}
 	client := http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {

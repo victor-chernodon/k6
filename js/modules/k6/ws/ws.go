@@ -151,7 +151,7 @@ func (*WS) Connect(ctx context.Context, url string, args ...goja.Value) (*WSHTTP
 				if goja.IsUndefined(jarV) || goja.IsNull(jarV) {
 					continue
 				}
-				if v, ok := jarV.Export().(*httpModule.HTTPCookieJar); ok {
+				if v, ok := jarV.Export().(*httpModule.CookieJar); ok {
 					jar = v.Jar
 				}
 			case "compression":

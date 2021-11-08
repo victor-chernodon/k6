@@ -56,7 +56,7 @@ type State struct {
 	// Networking equipment.
 	Transport http.RoundTripper
 	Dialer    DialContexter
-	CookieJar *cookiejar.Jar
+	CookieJar *cookiejar.Jar // TODO: move this to the k6/http ModuleInstance?
 	TLSConfig *tls.Config
 
 	// Rate limits.
