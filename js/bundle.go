@@ -310,6 +310,30 @@ func (b *Bundle) instantiate(logger logrus.FieldLogger, rt *goja.Runtime, init *
 	}
 	rt.Set("__ENV", env)
 	rt.Set("__VU", vuID)
+	rt.SetPromiseRejectionTracker(func(p *goja.Promise, op goja.PromiseRejectionOperation) {
+		// TODO this only handles the case where a promise get's rejected (either by an exception or by rejecting it
+		// programmatically). But the other case where for an already rejected promise (one that we've logged the error)
+		// there is now a reject handler attached is not handled.
+		// Unfortunately that might mean that we log the warning to the user at much later time (you can set a reject on
+		// a promise even a few loops of the event loop later.
+		// Firefox seems to manage to catch ones that happen before the end of the currently executing script and
+		// doesn't log the once that get a rejection handler attached. We can do something similar although given that a
+		// script can go for much longer than most script executions on firefox (and also this is just my observation)
+		// we should probably have it time limited as otherwise we will be keeping references to rejected promises that
+		// might never get a rejection handler and also it will be better to not log about this 5seconds after it has
+		// happened.
+		// Read Notes on https://tc39.es/ecma262/#sec-host-promise-rejection-tracker
+		if op == goja.PromiseRejectionReject {
+			frames := rt.CaptureCallStack(20, nil)
+			buf := &bytes.Buffer{}
+			for _, frame := range frames {
+				frame.Write(buf)
+				buf.WriteRune('\n')
+			}
+
+			logger.Warnf("Uncaught (in Promise) %s\n %s", p.Result(), buf.String())
+		}
+	})
 	_ = rt.Set("setTimeout", func(f func(), t float64) {
 		// TODO checks and fixes
 		// TODO maybe really return something to use with `clearTimeout
