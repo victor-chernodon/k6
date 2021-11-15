@@ -30,6 +30,7 @@ import (
 type eventLoop struct {
 	queueLock     sync.Mutex
 	queue         []func()
+	started       int
 	wakeupCh      chan struct{} // maybe use sync.Cond ?
 	reservedCount int
 }
@@ -60,10 +61,15 @@ func (e *eventLoop) RunOnLoop(f func()) {
 func (e *eventLoop) Reserve() func(func()) {
 	e.queueLock.Lock()
 	e.reservedCount++
+	started := e.started
 	e.queueLock.Unlock()
 
 	return func(f func()) {
 		e.queueLock.Lock()
+		if started != e.started {
+			e.queueLock.Unlock()
+			return
+		}
 		e.queue = append(e.queue, f)
 		e.reservedCount--
 		e.queueLock.Unlock()
@@ -78,6 +84,10 @@ func (e *eventLoop) Reserve() func(func()) {
 // or the context is done
 //nolint:cyclop
 func (e *eventLoop) Start(ctx context.Context) {
+	e.queueLock.Lock()
+	e.started++
+	e.reservedCount = 0
+	e.queueLock.Unlock()
 	done := ctx.Done()
 	for {
 		select { // check if done

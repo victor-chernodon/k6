@@ -36,15 +36,15 @@ func TestBasicEventLoop(t *testing.T) {
 	defer cancel()
 	loop.RunOnLoop(func() { ran++ })
 	loop.Start(ctx)
-	require.Equal(t, ran, 1)
+	require.Equal(t, 1, ran)
 	loop.RunOnLoop(func() { ran++ })
 	loop.RunOnLoop(func() { ran++ })
 	loop.Start(ctx)
-	require.Equal(t, ran, 3)
+	require.Equal(t, 3, ran)
 	loop.RunOnLoop(func() { ran++; cancel() })
 	loop.RunOnLoop(func() { ran++ })
 	loop.Start(ctx)
-	require.Equal(t, ran, 4)
+	require.Equal(t, 4, ran)
 }
 
 func TestEventLoopReserve(t *testing.T) {
@@ -66,6 +66,46 @@ func TestEventLoopReserve(t *testing.T) {
 	start := time.Now()
 	loop.Start(ctx)
 	took := time.Since(start)
-	require.Equal(t, ran, 2)
-	require.Greater(t, took, time.Second)
+	require.Equal(t, 2, ran)
+	require.Less(t, time.Second, took)
+	require.Greater(t, time.Second+time.Millisecond*100, took)
+}
+
+func TestEventLoopReserveStopBetweenStarts(t *testing.T) {
+	t.Parallel()
+	loop := newEventLoop()
+	var ran int
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	loop.RunOnLoop(func() {
+		ran++
+		r := loop.Reserve()
+		go func() {
+			time.Sleep(time.Second)
+			r(func() {
+				ran++
+			})
+		}()
+	})
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		cancel()
+	}()
+	loop.Start(ctx)
+	require.Equal(t, 1, ran)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	loop.RunOnLoop(func() {
+		ran++
+		r := loop.Reserve()
+		go func() {
+			time.Sleep(time.Second)
+			r(func() {
+				ran++
+			})
+		}()
+	})
+	loop.Start(ctx)
+	require.Equal(t, 3, ran)
 }
