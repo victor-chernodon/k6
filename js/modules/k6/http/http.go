@@ -40,15 +40,15 @@ type RootModule struct{}
 
 // ModuleInstance represents an instance of the HTTP module for every VU.
 type ModuleInstance struct {
-	modules.InstanceCore
+	vu            modules.VU
 	rootModule    *RootModule
 	defaultClient *Client
 	exports       *goja.Object
 }
 
 var (
-	_ modules.IsModuleV2 = &RootModule{}
-	_ modules.Instance   = &ModuleInstance{}
+	_ modules.Module   = &RootModule{}
+	_ modules.Instance = &ModuleInstance{}
 )
 
 // New returns a pointer to a new HTTP RootModule.
@@ -57,12 +57,12 @@ func New() *RootModule {
 }
 
 // NewModuleInstancePerVU returns an HTTP module instance for each VU.
-func (r *RootModule) NewModuleInstance(ic modules.InstanceCore) modules.Instance {
-	rt := ic.GetRuntime()
+func (r *RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
+	rt := vu.Runtime()
 	mi := &ModuleInstance{
-		InstanceCore: ic,
-		rootModule:   r,
-		exports:      rt.NewObject(),
+		vu:         vu,
+		rootModule: r,
+		exports:    rt.NewObject(),
 	}
 	mi.defineConstants()
 
@@ -110,7 +110,7 @@ func (r *RootModule) NewModuleInstance(ic modules.InstanceCore) modules.Instance
 	return mi
 }
 
-func (mi *ModuleInstance) GetExports() modules.Exports {
+func (mi *ModuleInstance) Exports() modules.Exports {
 	return modules.Exports{
 		Default: mi.exports,
 		// TODO: add new HTTP APIs like Client, Request, etc. as named exports?
@@ -119,7 +119,7 @@ func (mi *ModuleInstance) GetExports() modules.Exports {
 
 // TODO: deprecate these?
 func (mi *ModuleInstance) defineConstants() {
-	rt := mi.GetRuntime()
+	rt := mi.vu.Runtime()
 	mustAddProp := func(name, val string) {
 		err := mi.exports.DefineDataProperty(
 			name, rt.ToValue(val), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE,
@@ -158,7 +158,7 @@ func (mi *ModuleInstance) newCookieJar(call goja.ConstructorCall, rt *goja.Runti
 
 // getVUCookieJar returns the active cookie jar for the current VU.
 func (mi *ModuleInstance) getVUCookieJar(call goja.FunctionCall, rt *goja.Runtime) goja.Value {
-	if state := mi.GetState(); state != nil {
+	if state := mi.vu.State(); state != nil {
 		return rt.ToValue(&CookieJar{mi, state.CookieJar})
 	}
 	common.Throw(rt, ErrJarForbiddenInInitContext)

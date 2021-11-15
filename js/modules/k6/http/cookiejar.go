@@ -60,7 +60,7 @@ func (j CookieJar) CookiesForURL(url string) map[string][]string {
 
 // Set sets a cookie for a particular url with the given name value and additional opts
 func (j CookieJar) Set(url, name, value string, opts goja.Value) (bool, error) {
-	rt := j.moduleInstance.GetRuntime()
+	rt := j.moduleInstance.vu.Runtime()
 
 	u, err := neturl.Parse(url)
 	if err != nil {

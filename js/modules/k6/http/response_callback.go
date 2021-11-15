@@ -60,7 +60,7 @@ func (e expectedStatuses) match(status int) bool {
 // The arguments must be either integers or object of `{min: <integer>, max: <integer>}`
 // kind. The "integer"ness is checked by the Number.isInteger.
 func (mi *ModuleInstance) expectedStatuses(args ...goja.Value) *expectedStatuses { //nolint: golint
-	rt := mi.GetRuntime()
+	rt := mi.vu.Runtime()
 
 	if len(args) == 0 {
 		common.Throw(rt, errors.New("no arguments"))
@@ -108,7 +108,7 @@ func (c *Client) SetResponseCallback(val goja.Value) {
 			c.responseCallback = es.match
 		} else {
 			common.Throw(
-				c.moduleInstance.GetRuntime(),
+				c.moduleInstance.vu.Runtime(),
 				fmt.Errorf("unsupported argument, expected http.expectedStatuses"),
 			)
 		}

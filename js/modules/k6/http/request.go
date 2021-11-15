@@ -55,7 +55,7 @@ func (c *Client) getMethodClosure(method string) func(url goja.Value, args ...go
 // Request makes an http request of the provided `method` and returns a corresponding response by
 // taking goja.Values as arguments
 func (c *Client) Request(method string, url goja.Value, args ...goja.Value) (*Response, error) {
-	state := c.moduleInstance.GetState()
+	state := c.moduleInstance.vu.State()
 	if state == nil {
 		return nil, ErrHTTPForbiddenInInitContext
 	}
@@ -85,7 +85,7 @@ func (c *Client) Request(method string, url goja.Value, args ...goja.Value) (*Re
 		return &Response{Response: r}, nil
 	}
 
-	resp, err := httpext.MakeRequest(c.moduleInstance.GetContext(), state, req)
+	resp, err := httpext.MakeRequest(c.moduleInstance.vu.Context(), state, req)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (c *Client) Request(method string, url goja.Value, args ...goja.Value) (*Re
 // a reverse dependency on js/common or goja.
 func (c *Client) processResponse(resp *httpext.Response, respType httpext.ResponseType) {
 	if respType == httpext.ResponseTypeBinary && resp.Body != nil {
-		resp.Body = c.moduleInstance.GetRuntime().NewArrayBuffer(resp.Body.([]byte))
+		resp.Body = c.moduleInstance.vu.Runtime().NewArrayBuffer(resp.Body.([]byte))
 	}
 }
 
@@ -111,8 +111,8 @@ func (c *Client) responseFromHttpext(resp *httpext.Response) *Response {
 func (c *Client) parseRequest(
 	method string, reqURL, body interface{}, params goja.Value,
 ) (*httpext.ParsedHTTPRequest, error) {
-	rt := c.moduleInstance.GetRuntime()
-	state := c.moduleInstance.GetState()
+	rt := c.moduleInstance.vu.Runtime()
+	state := c.moduleInstance.vu.State()
 	if state == nil {
 		return nil, ErrHTTPForbiddenInInitContext
 	}
@@ -438,7 +438,7 @@ func (c *Client) prepareBatchObject(requests map[string]interface{}) (
 // Batch makes multiple simultaneous HTTP requests. The provideds reqsV should be an array of request
 // objects. Batch returns an array of responses and/or error
 func (c *Client) Batch(reqsV goja.Value) (interface{}, error) {
-	state := c.moduleInstance.GetState()
+	state := c.moduleInstance.vu.State()
 	if state == nil {
 		return nil, ErrBatchForbiddenInInitContext
 	}
@@ -468,7 +468,7 @@ func (c *Client) Batch(reqsV goja.Value) (interface{}, error) {
 
 	reqCount := len(batchReqs)
 	errs := httpext.MakeBatchRequests(
-		c.moduleInstance.GetContext(), state, batchReqs, reqCount,
+		c.moduleInstance.vu.Context(), state, batchReqs, reqCount,
 		int(state.Options.Batch.Int64), int(state.Options.BatchPerHost.Int64),
 		c.processResponse,
 	)
@@ -487,7 +487,7 @@ func (c *Client) parseBatchRequest(key interface{}, val interface{}) (*httpext.P
 		ok           bool
 		body, reqURL interface{}
 		params       goja.Value
-		rt           = c.moduleInstance.GetRuntime()
+		rt           = c.moduleInstance.vu.Runtime()
 	)
 
 	switch data := val.(type) {

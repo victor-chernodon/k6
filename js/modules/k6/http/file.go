@@ -58,7 +58,7 @@ func (mi *ModuleInstance) File(data interface{}, args ...string) FileData {
 
 	dt, err := common.ToBytes(data)
 	if err != nil {
-		common.Throw(mi.GetRuntime(), err)
+		common.Throw(mi.vu.Runtime(), err)
 	}
 
 	return FileData{

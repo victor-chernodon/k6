@@ -1236,13 +1236,13 @@ func TestCookieJar(t *testing.T) {
 		}
 	}))
 
-	mii := &modulestest.InstanceCore{
-		Runtime: ts.rt,
-		InitEnv: &common.InitEnvironment{Registry: metrics.NewRegistry()},
-		Ctx:     context.Background(),
-		State:   ts.state,
+	mii := &modulestest.VU{
+		RuntimeField: ts.rt,
+		InitEnvField: &common.InitEnvironment{Registry: metrics.NewRegistry()},
+		CtxField:     context.Background(),
+		StateField:   ts.state,
 	}
-	err := ts.rt.Set("http", httpModule.New().NewModuleInstance(mii).GetExports().Default)
+	err := ts.rt.Set("http", httpModule.New().NewModuleInstance(mii).Exports().Default)
 	require.NoError(t, err)
 	ts.state.CookieJar, _ = cookiejar.New(nil)
 

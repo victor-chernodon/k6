@@ -58,7 +58,7 @@ func (j jsonError) Error() string {
 
 // HTML returns the body as an html.Selection
 func (res *Response) HTML(selector ...string) html.Selection {
-	rt := res.client.moduleInstance.GetRuntime()
+	rt := res.client.moduleInstance.vu.Runtime()
 	if res.Body == nil {
 		err := fmt.Errorf("the body is null so we can't transform it to HTML" +
 			" - this likely was because of a request error getting the response")
@@ -70,7 +70,7 @@ func (res *Response) HTML(selector ...string) html.Selection {
 		common.Throw(rt, err)
 	}
 
-	sel, err := html.HTML{}.ParseHTML(res.client.moduleInstance.GetContext(), body)
+	sel, err := html.HTML{}.ParseHTML(res.client.moduleInstance.vu.Context(), body)
 	if err != nil {
 		common.Throw(rt, err)
 	}
@@ -83,7 +83,7 @@ func (res *Response) HTML(selector ...string) html.Selection {
 
 // JSON parses the body of a response as JSON and returns it to the goja VM.
 func (res *Response) JSON(selector ...string) goja.Value {
-	rt := res.client.moduleInstance.GetRuntime()
+	rt := res.client.moduleInstance.vu.Runtime()
 
 	if res.Body == nil {
 		err := fmt.Errorf("the body is null so we can't transform it to JSON" +
@@ -155,7 +155,7 @@ func checkErrorInJSON(input []byte, offset int, err error) error {
 // SubmitForm parses the body as an html looking for a from and then submitting it
 // TODO: document the actual arguments that can be provided
 func (res *Response) SubmitForm(args ...goja.Value) (*Response, error) {
-	rt := res.client.moduleInstance.GetRuntime()
+	rt := res.client.moduleInstance.vu.Runtime()
 
 	formSelector := "form"
 	submitSelector := "[type=\"submit\"]"
@@ -244,7 +244,7 @@ func (res *Response) SubmitForm(args ...goja.Value) (*Response, error) {
 // ClickLink parses the body as an html, looks for a link and than makes a request as if the link was
 // clicked
 func (res *Response) ClickLink(args ...goja.Value) (*Response, error) {
-	rt := res.client.moduleInstance.GetRuntime()
+	rt := res.client.moduleInstance.vu.Runtime()
 
 	selector := "a[href]"
 	requestParams := goja.Null()
