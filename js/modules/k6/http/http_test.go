@@ -43,8 +43,8 @@ func getTestModuleInstance(t testing.TB, ctx context.Context, state *lib.State) 
 		ctx = context.Background()
 	}
 
-	root := new(RootModule)
-	mii := &modulestest.VU{
+	root := New()
+	mockVU := &modulestest.VU{
 		RuntimeField: rt,
 		InitEnvField: &common.InitEnvironment{
 			Registry: metrics.NewRegistry(),
@@ -52,7 +52,7 @@ func getTestModuleInstance(t testing.TB, ctx context.Context, state *lib.State) 
 		CtxField:   ctx,
 		StateField: state,
 	}
-	mi, ok := root.NewModuleInstance(mii).(*ModuleInstance)
+	mi, ok := root.NewModuleInstance(mockVU).(*ModuleInstance)
 	require.True(t, ok)
 
 	rt.Set("http", mi.Exports().Default)

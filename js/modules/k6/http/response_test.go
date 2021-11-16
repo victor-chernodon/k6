@@ -357,7 +357,7 @@ func TestResponse(t *testing.T) {
 					data.textarea[0] !== "Lorem ipsum dolor sit amet"
 				) { throw new Error("incorrect body: " + JSON.stringify(data, null, 4) ); }
 			`))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assertRequestMetricsEmitted(t, stats.GetBufferedSamples(samples), "GET", sr("HTTPBIN_URL/myforms/get"), "", 200, "")
 		})
 	})

@@ -70,7 +70,7 @@ func (res *Response) HTML(selector ...string) html.Selection {
 		common.Throw(rt, err)
 	}
 
-	sel, err := html.HTML{}.ParseHTML(res.client.moduleInstance.vu.Context(), body)
+	sel, err := html.ParseHTML(rt, body)
 	if err != nil {
 		common.Throw(rt, err)
 	}

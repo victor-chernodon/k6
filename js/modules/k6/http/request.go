@@ -82,7 +82,7 @@ func (c *Client) Request(method string, url goja.Value, args ...goja.Value) (*Re
 		if errors.As(err, &k6e) {
 			r.ErrorCode = int(k6e.Code)
 		}
-		return &Response{Response: r}, nil
+		return &Response{Response: r, client: c}, nil
 	}
 
 	resp, err := httpext.MakeRequest(c.moduleInstance.vu.Context(), state, req)
