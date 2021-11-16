@@ -279,5 +279,5 @@ func (res *Response) ClickLink(args ...goja.Value) (*Response, error) {
 	}
 	requestURL := responseURL.ResolveReference(hrefURL)
 
-	return res.client.Request(http.MethodGet, rt.ToValue(requestURL.String()), requestParams)
+	return res.client.Request(http.MethodGet, rt.ToValue(requestURL.String()), goja.Undefined(), requestParams)
 }
