@@ -736,7 +736,8 @@ func (u *VU) runFn(
 		u.state.Tags.Set("iter", strconv.FormatInt(u.state.Iteration, 10))
 	}
 
-	u.loop.RunOnLoop(func() {
+	startTime := time.Now()
+	u.loop.start(ctx, func() {
 		defer func() {
 			if r := recover(); r != nil {
 				gojaStack := u.Runtime.CaptureCallStack(20, nil)
@@ -754,9 +755,6 @@ func (u *VU) runFn(
 		}()
 		v, err = fn(goja.Undefined(), args...) // Actually run the JS script
 	})
-
-	startTime := time.Now()
-	u.loop.Start(ctx)
 	endTime := time.Now()
 	var exception *goja.Exception
 	if errors.As(err, &exception) {

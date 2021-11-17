@@ -179,14 +179,14 @@ func (m *moduleVUImpl) Runtime() *goja.Runtime {
 }
 
 func (m *moduleVUImpl) AddToEventLoop(f func()) {
-	m.loop.RunOnLoop(f)
+	m.loop.reserve()(f)
 }
 
 // MakeHandledPromise will create and promise and return it's resolve, reject methods as well wrapped in such a way that
 // it will block the eventloop from exiting before they are called even if the promise isn't resolved by the time the
 // current script ends executing
 func (m *moduleVUImpl) MakeHandledPromise() (*goja.Promise, func(interface{}), func(interface{})) {
-	reserved := m.loop.Reserve()
+	reserved := m.loop.reserve()
 	p, resolve, reject := m.rt.NewPromise()
 	return p, func(i interface{}) {
 			// more stuff

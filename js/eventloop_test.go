@@ -34,17 +34,17 @@ func TestBasicEventLoop(t *testing.T) {
 	var ran int
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	loop.RunOnLoop(func() { ran++ })
-	loop.Start(ctx)
+	f := func() { ran++ }
+	loop.start(ctx, f)
 	require.Equal(t, 1, ran)
-	loop.RunOnLoop(func() { ran++ })
-	loop.RunOnLoop(func() { ran++ })
-	loop.Start(ctx)
+	loop.start(ctx, f)
+	require.Equal(t, 2, ran)
+	loop.start(ctx, func() {
+		f()
+		loop.reserve()(f)
+		cancel()
+	})
 	require.Equal(t, 3, ran)
-	loop.RunOnLoop(func() { ran++; cancel() })
-	loop.RunOnLoop(func() { ran++ })
-	loop.Start(ctx)
-	require.Equal(t, 4, ran)
 }
 
 func TestEventLoopReserve(t *testing.T) {
@@ -53,9 +53,10 @@ func TestEventLoopReserve(t *testing.T) {
 	var ran int
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	loop.RunOnLoop(func() {
+	start := time.Now()
+	loop.start(ctx, func() {
 		ran++
-		r := loop.Reserve()
+		r := loop.reserve()
 		go func() {
 			time.Sleep(time.Second)
 			r(func() {
@@ -63,8 +64,6 @@ func TestEventLoopReserve(t *testing.T) {
 			})
 		}()
 	})
-	start := time.Now()
-	loop.Start(ctx)
 	took := time.Since(start)
 	require.Equal(t, 2, ran)
 	require.Less(t, time.Second, took)
@@ -77,28 +76,13 @@ func TestEventLoopReserveStopBetweenStarts(t *testing.T) {
 	var ran int
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	loop.RunOnLoop(func() {
-		ran++
-		r := loop.Reserve()
-		go func() {
-			time.Sleep(time.Second)
-			r(func() {
-				ran++
-			})
-		}()
-	})
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		cancel()
 	}()
-	loop.Start(ctx)
-	require.Equal(t, 1, ran)
-
-	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
-	loop.RunOnLoop(func() {
+	loop.start(ctx, func() {
 		ran++
-		r := loop.Reserve()
+		r := loop.reserve()
 		go func() {
 			time.Sleep(time.Second)
 			r(func() {
@@ -106,6 +90,19 @@ func TestEventLoopReserveStopBetweenStarts(t *testing.T) {
 			})
 		}()
 	})
-	loop.Start(ctx)
+	require.Equal(t, 1, ran)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	loop.start(ctx, func() {
+		ran++
+		r := loop.reserve()
+		go func() {
+			time.Sleep(time.Second)
+			r(func() {
+				ran++
+			})
+		}()
+	})
 	require.Equal(t, 3, ran)
 }

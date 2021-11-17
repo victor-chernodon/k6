@@ -338,7 +338,7 @@ func (b *Bundle) instantiate(logger logrus.FieldLogger, rt *goja.Runtime, init *
 		// TODO checks and fixes
 		// TODO maybe really return something to use with `clearTimeout
 		// TODO support arguments ... maybe
-		runOnLoop := init.loop.Reserve()
+		runOnLoop := init.loop.reserve()
 		go func() {
 			time.Sleep(time.Duration(t * float64(time.Millisecond)))
 			runOnLoop(f)
@@ -362,8 +362,7 @@ func (b *Bundle) instantiate(logger logrus.FieldLogger, rt *goja.Runtime, init *
 	*init.ctxPtr = common.WithRuntime(ctx, rt)
 	unbindInit := common.BindToGlobal(rt, common.Bind(rt, init, init.ctxPtr))
 	var err error
-	init.loop.RunOnLoop(func() { _, err = rt.RunProgram(b.Program) })
-	init.loop.Start(*init.ctxPtr)
+	init.loop.start(*init.ctxPtr, func() { _, err = rt.RunProgram(b.Program) })
 	if err != nil {
 		var exception *goja.Exception
 		if errors.As(err, &exception) {

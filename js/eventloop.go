@@ -26,9 +26,8 @@ import (
 )
 
 // an event loop
-// TODO: DO NOT USE AS IT'S NOT DONE
 type eventLoop struct {
-	queueLock     sync.Mutex
+	lock          sync.Mutex
 	queue         []func()
 	started       int
 	wakeupCh      chan struct{} // maybe use sync.Cond ?
@@ -41,53 +40,49 @@ func newEventLoop() *eventLoop {
 	}
 }
 
-// RunOnLoop queues the function to be called from/on the loop
-// This needs to be called before calling `Start`
-// TODO maybe have only Reserve as this is equal to `e.Reserve()(f)`
-func (e *eventLoop) RunOnLoop(f func()) {
-	e.queueLock.Lock()
-	e.queue = append(e.queue, f)
-	e.queueLock.Unlock()
+func (e *eventLoop) wakeup() {
 	select {
 	case e.wakeupCh <- struct{}{}:
 	default:
 	}
 }
 
-// Reserve "reserves" a spot on the loop, preventing it from returning/finishing. The returning function will queue it's
-// argument and wakeup the loop if needed and also unreserve the spot so that the loop can exit.
+// reserve "reserves" a spot on the loop, preventing it from returning/finishing. The returning function will queue it's
+// argument and wakeup the loop if needed and also unreserve the spot so that the loop can exit. If the eventLoop has
+// since stopped it will return `false` and it will mean that this won't even be queued.
+// Even if it's queued it doesn't mean that it will definitely be executed.
 // this should be used instead of MakeHandledPromise if a promise will not be returned
 // TODO better name
-func (e *eventLoop) Reserve() func(func()) {
-	e.queueLock.Lock()
+func (e *eventLoop) reserve() func(func()) bool {
+	e.lock.Lock()
 	e.reservedCount++
 	started := e.started
-	e.queueLock.Unlock()
+	e.lock.Unlock()
 
-	return func(f func()) {
-		e.queueLock.Lock()
+	return func(f func()) bool {
+		e.lock.Lock()
 		if started != e.started {
-			e.queueLock.Unlock()
-			return
+			e.lock.Unlock()
+			return false
 		}
 		e.queue = append(e.queue, f)
 		e.reservedCount--
-		e.queueLock.Unlock()
-		select {
-		case e.wakeupCh <- struct{}{}:
-		default:
-		}
+		e.lock.Unlock()
+		e.wakeup()
+		return true
 	}
 }
 
-// Start will run the event loop until it's empty and there are no reserved spots
-// or the context is done
+// start will run the event loop until it's empty and there are no reserved spots
+// or the context is done. The provided function will be queued.
+// After it returns any Reserved function from this start will not be queued even if the eventLoop is restarted
 //nolint:cyclop
-func (e *eventLoop) Start(ctx context.Context) {
-	e.queueLock.Lock()
+func (e *eventLoop) start(ctx context.Context, f func()) {
+	e.lock.Lock()
 	e.started++
 	e.reservedCount = 0
-	e.queueLock.Unlock()
+	e.queue = append(e.queue, f)
+	e.lock.Unlock()
 	done := ctx.Done()
 	for {
 		select { // check if done
@@ -97,11 +92,11 @@ func (e *eventLoop) Start(ctx context.Context) {
 		}
 
 		// acquire the queue
-		e.queueLock.Lock()
+		e.lock.Lock()
 		queue := e.queue
 		e.queue = make([]func(), 0, len(queue))
 		reserved := e.reservedCount != 0
-		e.queueLock.Unlock()
+		e.lock.Unlock()
 
 		if len(queue) == 0 {
 			if !reserved { // we have empty queue and nothing that reserved a spot
