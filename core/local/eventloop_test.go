@@ -123,3 +123,75 @@ func TestEventLoop(t *testing.T) {
 		t.Fatal("timed out")
 	}
 }
+
+func TestEventLoopCrossScenario(t *testing.T) {
+	t.Parallel()
+	// TODO refactor the repeating parts here and the previous test
+	script := []byte(`
+export const options = {
+        scenarios: {
+                "first":{
+                        executor: "shared-iterations",
+                        maxDuration: "1s",
+                        iterations: 1,
+                        vus: 1,
+                        gracefulStop:"1s",
+                },
+                "second": {
+                        executor: "shared-iterations",
+                        maxDuration: "1s",
+                        iterations: 1,
+                        vus: 1,
+                        startTime: "3s",
+                }
+        }
+}
+export default function() {
+	let i = exec.scenario.name
+	setTimeout(()=> {console.log(i)}, 5000)
+}
+`)
+
+	logger := logrus.New()
+	logger.SetOutput(ioutil.Discard)
+	logHook := testutils.SimpleLogrusHook{HookedLevels: []logrus.Level{logrus.InfoLevel}}
+	logger.AddHook(&logHook)
+
+	registry := metrics.NewRegistry()
+	builtinMetrics := metrics.RegisterBuiltinMetrics(registry)
+	runner, err := js.New(
+		logger,
+		&loader.SourceData{
+			URL:  &url.URL{Path: "/script.js"},
+			Data: script,
+		},
+		nil,
+		lib.RuntimeOptions{},
+		builtinMetrics,
+		registry,
+	)
+	require.NoError(t, err)
+	runner.GetOptions()
+
+	ctx, cancel, execScheduler, samples := newTestExecutionScheduler(t, runner, logger,
+		lib.Options{})
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- execScheduler.Run(ctx, ctx, samples, builtinMetrics) }()
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+		_, err = runner.HandleSummary(ctx, &lib.Summary{RootGroup: &lib.Group{}})
+		require.NoError(t, err)
+		entries := logHook.Drain()
+		msgs := make([]string, len(entries))
+		for i, entry := range entries {
+			msgs[i] = entry.Message
+		}
+		require.Equal(t, []string{}, msgs)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+}
