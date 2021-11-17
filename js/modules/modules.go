@@ -120,23 +120,13 @@ type VU interface {
 	// Runtime returns the goja.Runtime for the current VU
 	Runtime() *goja.Runtime
 
-	// sealing field will help probably with pointing users that they just need to embed this in their Instance
-	// implementations
-
-	// MakeHandledPromise needs a better name
-	// because of the way promises work and the fact that we probably don't want promises from one iteration to live
-	// till the next, this method lets a piece of module code say that they will be returning a promise that needs to be
-	// resolved/rejected within this iteration. K6 will not continue with a next iteration until either `resolve` or
-	// `reject` are called at which point the Promise usual handling of those will trigger.
-	// Caveats: this likely won't work if the Promise is rejected from within the js code
-	// This also will likely have problems with context canceling so both of those will need extra care
-	// TODO maybe export eventloop.Reserve and implement this in the js/common
-	MakeHandledPromise() (p *goja.Promise, resolve func(interface{}), reject func(interface{}))
-
-	// AddToEventLoop needs a better name
+	// Reserve needs a better name
 	// MUST only be called while absolutely certain that something will not let the iteration end between the start and
 	// end of the call
-	AddToEventLoop(func())
+	Reserve() func(func()) bool
+
+	// sealing field will help probably with pointing users that they just need to embed this in their Instance
+	// implementations
 }
 
 // Exports is representation of ESM exports of a module

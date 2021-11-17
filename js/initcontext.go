@@ -178,9 +178,12 @@ func (m *moduleVUImpl) Runtime() *goja.Runtime {
 	return m.rt
 }
 
-func (m *moduleVUImpl) AddToEventLoop(f func()) {
-	m.loop.reserve()(f)
+func (m *moduleVUImpl) Reserve() func(func()) bool {
+	return m.loop.reserve()
 }
+
+/* This is here to illustrate how to use Reserve to get a promise to work with the event loop
+// TODO move this to a common function or remove before merging
 
 // MakeHandledPromise will create and promise and return it's resolve, reject methods as well wrapped in such a way that
 // it will block the eventloop from exiting before they are called even if the promise isn't resolved by the time the
@@ -196,6 +199,7 @@ func (m *moduleVUImpl) MakeHandledPromise() (*goja.Promise, func(interface{}), f
 			reserved(func() { reject(i) })
 		}
 }
+*/
 
 func toESModuleExports(exp modules.Exports) interface{} {
 	if exp.Named == nil {
