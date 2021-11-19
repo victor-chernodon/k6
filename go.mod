@@ -11,6 +11,7 @@ require (
 	github.com/dop251/goja v0.0.0-20211022113120-dc8c55024d06
 	github.com/fatih/color v1.12.0
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.4-0.20211119122758-180fcef48034+incompatible // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/gorilla/websocket v1.4.2
