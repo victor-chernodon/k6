@@ -96,9 +96,6 @@ func (mi *ModuleInstance) newScenarioInfo() (*goja.Object, error) {
 	if vuState == nil {
 		return nil, errors.New("getting scenario information in the init context is not supported")
 	}
-	if rt == nil {
-		return nil, errors.New("goja runtime is nil in context")
-	}
 	getScenarioState := func() *lib.ScenarioState {
 		ss := lib.GetScenarioState(mi.vu.Context())
 		if ss == nil {
@@ -140,16 +137,11 @@ func (mi *ModuleInstance) newScenarioInfo() (*goja.Object, error) {
 // newInstanceInfo returns a goja.Object with property accessors to retrieve
 // information about the local instance stats.
 func (mi *ModuleInstance) newInstanceInfo() (*goja.Object, error) {
-	ctx := mi.vu.Context()
-	es := lib.GetExecutionState(ctx)
+	es := lib.GetExecutionState(mi.vu.Context())
 	if es == nil {
 		return nil, errors.New("getting instance information in the init context is not supported")
 	}
-
-	rt := common.GetRuntime(ctx)
-	if rt == nil {
-		return nil, errors.New("goja runtime is nil in context")
-	}
+	rt := mi.vu.Runtime()
 
 	ti := map[string]func() interface{}{
 		"currentTestRunDuration": func() interface{} {
@@ -176,10 +168,6 @@ func (mi *ModuleInstance) newInstanceInfo() (*goja.Object, error) {
 // information and control execution of the overall test run.
 func (mi *ModuleInstance) newTestInfo() (*goja.Object, error) {
 	rt := mi.vu.Runtime()
-	if rt == nil {
-		return nil, errors.New("goja runtime is nil in context")
-	}
-
 	ti := map[string]func() interface{}{
 		// stop the test run
 		"abort": func() interface{} {
@@ -199,16 +187,11 @@ func (mi *ModuleInstance) newTestInfo() (*goja.Object, error) {
 // newVUInfo returns a goja.Object with property accessors to retrieve
 // information about the currently executing VU.
 func (mi *ModuleInstance) newVUInfo() (*goja.Object, error) {
-	ctx := mi.vu.Context()
-	vuState := lib.GetState(ctx)
+	vuState := mi.vu.State()
 	if vuState == nil {
 		return nil, errors.New("getting VU information in the init context is not supported")
 	}
-
-	rt := common.GetRuntime(ctx)
-	if rt == nil {
-		return nil, errors.New("goja runtime is nil in context")
-	}
+	rt := mi.vu.Runtime()
 
 	vi := map[string]func() interface{}{
 		"idInInstance":        func() interface{} { return vuState.VUID },
