@@ -194,43 +194,47 @@ func TestConstantArrivalRateRunCorrectTiming(t *testing.T) {
 
 		t.Run(fmt.Sprintf("segment %s sequence %s", test.segment, test.sequence), func(t *testing.T) {
 			t.Parallel()
+
 			et, err := lib.NewExecutionTuple(test.segment, test.sequence)
 			require.NoError(t, err)
+
 			es := lib.NewExecutionState(lib.Options{
 				ExecutionSegment:         test.segment,
 				ExecutionSegmentSequence: test.sequence,
 			}, et, 10, 50)
-			var count int64
+
 			seconds := 2
 			config := getTestConstantArrivalRateConfig()
 			config.Duration.Duration = types.Duration(time.Second * time.Duration(seconds))
+
 			newET, err := es.ExecutionTuple.GetNewExecutionTupleFromValue(config.MaxVUs.Int64)
 			require.NoError(t, err)
 			rateScaled := newET.ScaleInt64(config.Rate.Int64)
+
+			var iterationsCount int64
 			startTime := time.Now()
 			expectedTimeInt64 := int64(test.start)
-			ctx, cancel, executor, logHook := setupExecutor(
-				t, config, es,
-				simpleRunner(func(ctx context.Context) error {
-					current := atomic.AddInt64(&count, 1)
+			runnerFn := func(ctx context.Context) error {
+				currentIterationCount := atomic.AddInt64(&iterationsCount, 1)
 
-					expectedTime := test.start
-					if current != 1 {
-						expectedTime = time.Duration(atomic.AddInt64(&expectedTimeInt64,
-							int64(time.Millisecond)*test.steps[(current-2)%int64(len(test.steps))]))
-					}
-					assert.WithinDuration(t,
-						startTime.Add(expectedTime),
-						time.Now(),
-						time.Millisecond*12,
-						"%d expectedTime %s", current, expectedTime,
-					)
+				expectedStartTime := test.start
+				if currentIterationCount != 1 {
+					iterationDuration := int64(time.Millisecond) * test.steps[(currentIterationCount-2)%int64(len(test.steps))]
+					expectedStartTime = time.Duration(atomic.AddInt64(&expectedTimeInt64, iterationDuration))
+				}
+				assert.WithinDuration(t,
+					startTime.Add(expectedStartTime),
+					time.Now(),
+					time.Millisecond*12,
+					"%d expectedTime %s", currentIterationCount, expectedStartTime,
+				)
 
-					return nil
-				}),
-			)
+				return nil
+			}
 
+			ctx, cancel, executor, logHook := setupExecutor(t, config, es, simpleRunner(runnerFn))
 			defer cancel()
+
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
@@ -240,14 +244,16 @@ func TestConstantArrivalRateRunCorrectTiming(t *testing.T) {
 
 				for i := 0; i < seconds; i++ {
 					time.Sleep(time.Second)
-					currentCount = atomic.LoadInt64(&count)
+					currentCount = atomic.LoadInt64(&iterationsCount)
 					assert.InDelta(t, int64(i+1)*rateScaled, currentCount, 3)
 				}
 			}()
+
 			startTime = time.Now()
 			engineOut := make(chan stats.SampleContainer, 1000)
 			err = executor.Run(ctx, engineOut, builtinMetrics)
 			wg.Wait()
+
 			require.NoError(t, err)
 			require.Empty(t, logHook.Drain())
 		})
