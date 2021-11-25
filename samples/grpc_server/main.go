@@ -79,8 +79,16 @@ func (s *routeGuideServer) GetFeature(ctx context.Context, point *Point) (*Featu
 	return &Feature{Location: point}, nil
 }
 
+type theSecondServiceServer struct {
+	UnimplementedTheSecondServiceServer
+	savedFeatures []*Feature // read-only after initialized
+
+	mu         sync.Mutex // protects routeNotes
+	routeNotes map[string][]*RouteNote
+}
+
 // ListFeatures lists all features contained within the given bounding Rectangle.
-func (s *routeGuideServer) ListFeatures(rect *Rectangle, stream RouteGuide_ListFeaturesServer) error {
+func (s *theSecondServiceServer) ListFeatures(rect *Rectangle, stream TheSecondService_ListFeaturesServer) error {
 	for _, feature := range s.savedFeatures {
 		if inRange(feature.Location, rect) {
 			time.Sleep(500 * time.Millisecond)
@@ -97,7 +105,7 @@ func (s *routeGuideServer) ListFeatures(rect *Rectangle, stream RouteGuide_ListF
 // It gets a stream of points, and responds with statistics about the "trip":
 // number of points,  number of known features visited, total distance traveled, and
 // total time spent.
-func (s *routeGuideServer) RecordRoute(stream RouteGuide_RecordRouteServer) error {
+func (s *theSecondServiceServer) RecordRoute(stream TheSecondService_RecordRouteServer) error {
 	var pointCount, featureCount, distance int32
 	var lastPoint *Point
 	startTime := time.Now()
@@ -130,7 +138,7 @@ func (s *routeGuideServer) RecordRoute(stream RouteGuide_RecordRouteServer) erro
 
 // RouteChat receives a stream of message/location pairs, and responds with a stream of all
 // previous messages at each of those locations.
-func (s *routeGuideServer) RouteChat(stream RouteGuide_RouteChatServer) error {
+func (s *theSecondServiceServer) RouteChat(stream TheSecondService_RouteChatServer) error {
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
@@ -225,6 +233,11 @@ func newServer() *routeGuideServer {
 	return s
 }
 
+func newServer2() *theSecondServiceServer {
+	s := &theSecondServiceServer{routeNotes: make(map[string][]*RouteNote)}
+	return s
+}
+
 func main() {
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
@@ -247,7 +260,9 @@ func main() {
 	}
 	grpcServer := grpc.NewServer(opts...)
 	RegisterRouteGuideServer(grpcServer, newServer())
+	RegisterTheSecondServiceServer(grpcServer, newServer2())
 	reflection.Register(grpcServer)
+	fmt.Printf("gRPC server is listining on the port: %d\n", *port)
 	grpcServer.Serve(lis)
 }
 

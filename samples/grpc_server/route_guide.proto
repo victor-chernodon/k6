@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package main;
 
-option go_package = ".;main";
+option go_package = "./;main";
 
 // Interface exported by the server.
 service RouteGuide {
@@ -27,7 +27,9 @@ service RouteGuide {
   // A feature with an empty name is returned if there's no feature at the given
   // position.
   rpc GetFeature(Point) returns (Feature) {}
+}
 
+service TheSecondService {
   // A server-to-client streaming RPC.
   //
   // Obtains the Features available within the given Rectangle.  Results are
